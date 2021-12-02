@@ -13,21 +13,14 @@ fn main() {
 }
 
 fn part1(s: &[u64]) -> usize {
-    count_consecutive_increase(s)
+    solve(s, 2)
 }
 
 fn part2(s: &[u64]) -> usize {
-    let x = s.windows(3).map(|w| w.iter().sum()).collect::<Vec<_>>();
-    count_consecutive_increase(&x)
+    // a + b + c < b + c + d <=> a < d
+    solve(s, 4)
 }
 
-fn count_consecutive_increase(l: &[u64]) -> usize {
-    l.windows(2)
-        .filter(|w| {
-            let mut it = w.into_iter();
-            let first = it.next().expect("Cannot read first element of windows 2");
-            let second = it.next().expect("Cannot read second element of windows 2");
-            first < second
-        })
-        .count()
+fn solve(s: &[u64], n: usize) -> usize {
+    s.windows(n).filter(|w| w[0] < w[n - 1]).count()
 }
