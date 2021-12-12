@@ -2,71 +2,80 @@ use std::fs::read_to_string;
 
 fn main() {
     let input = read_to_string("input.txt").expect("Cannot read file input");
-    let numbers = parse(&input);
+    let (len, numbers) = parse(&input);
 
-    println!("Part 1: {}", part1(numbers.clone()));
-    println!("Part 2: {}", part2(numbers));
+    println!("Part 1: {}", part1(len, &numbers));
+    println!("Part 2: {}", part2(len, numbers));
 }
 
-fn parse(input: &str) -> Vec<Vec<u64>> {
-    input
+fn parse(input: &str) -> (usize, Vec<u32>) {
+    let len = input
         .lines()
-        .map(|l| {
-            l.chars()
-                .map(|c| if c == '1' { 1 } else { 0 })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>()
+        .next()
+        .expect("Cannot read the first input  line")
+        .len();
+    let numbers = input
+        .lines()
+        .map(|l| u32::from_str_radix(l, 2).expect("Cannot convert string binary to integer"))
+        .collect();
+    (len, numbers)
 }
 
-fn part1(numbers: Vec<Vec<u64>>) -> u64 {
-    let mut most_significants = Vec::new();
-    let mut least_significants = Vec::new();
-    for column in 0..numbers[0].len() {
-        most_significants.push(most_significant(&numbers, column));
-        least_significants.push(least_significant(&numbers, column));
-    }
+fn part1(number_len: usize, numbers: &[u32]) -> u32 {
+    let most_common_bits = (0..number_len)
+        .rev()
+        .map(|position| most_significant(numbers, position))
+        .fold(0, |acc, most_significant_bit| {
+            acc << 1 | most_significant_bit
+        });
 
-    to_decimal(&most_significants) * to_decimal(&least_significants)
+    let least_significant_bits = !(u32::MAX << number_len) ^ most_common_bits;
+
+    least_significant_bits * most_common_bits
 }
 
-fn part2(numbers: Vec<Vec<u64>>) -> u64 {
-    let oxygen_generator_rating = life_support_tracking(numbers.clone(), &most_significant);
-    let co2_scrubber_rating = life_support_tracking(numbers.clone(), &least_significant);
+fn part2(number_len: usize, numbers: Vec<u32>) -> u32 {
+    let oxygen_generator_rating =
+        life_support_tracking(number_len, numbers.clone(), &most_significant);
+    let co2_scrubber_rating = life_support_tracking(number_len, numbers, &least_significant);
     oxygen_generator_rating * co2_scrubber_rating
 }
 
-fn life_support_tracking(mut numbers: Vec<Vec<u64>>, f: &dyn Fn(&[Vec<u64>], usize) -> u64) -> u64 {
-    let number_len = numbers[0].len();
-    let mut column = 0;
+fn life_support_tracking(
+    number_len: usize,
+    mut numbers: Vec<u32>,
+    f: &dyn Fn(&[u32], usize) -> u32,
+) -> u32 {
+    let mut column = number_len - 1;
 
-    while column < number_len {
+    loop {
         let bit_criteria = f(&numbers, column);
 
         numbers = numbers
             .into_iter()
-            .filter(|v| v[column] == bit_criteria)
+            .filter(|v| ((v >> column) & 1) == bit_criteria)
             .collect();
 
         if numbers.len() == 1 {
-            return to_decimal(&numbers[0]);
+            return numbers[0];
         }
 
-        column += 1;
+        column -= 1;
     }
-    unreachable!();
 }
 
-fn most_significant(numbers: &[Vec<u64>], position: usize) -> u64 {
-    let ones = numbers.into_iter().map(|x| x[position]).sum::<u64>();
-    if 2 * ones >= (numbers.len() as u64) {
+fn most_significant(numbers: &[u32], position: usize) -> u32 {
+    let column_mask = 1 << position;
+    let one_count = numbers.iter().filter(|&n| column_mask & n != 0).count();
+
+    if 2 * one_count >= numbers.len() {
         1
     } else {
         0
     }
 }
 
-fn least_significant(numbers: &[Vec<u64>], position: usize) -> u64 {
+fn least_significant(numbers: &[u32], position: usize) -> u32 {
     if most_significant(numbers, position) == 1 {
         0
     } else {
@@ -74,18 +83,14 @@ fn least_significant(numbers: &[Vec<u64>], position: usize) -> u64 {
     }
 }
 
-fn to_decimal(bits: &[u64]) -> u64 {
-    bits.into_iter().fold(0, |n, b| n << 1 | b)
-}
-
 #[cfg(test)]
 mod test {
 
-    use super::{parse, part1, part2};
+    use super::*;
 
     #[test]
     fn part1_test() {
-        let numbers = parse(
+        let (len, numbers) = parse(
             "00100
 11110
 10110
@@ -99,12 +104,12 @@ mod test {
 00010
 01010",
         );
-        assert_eq!(part1(numbers), 198)
+        assert_eq!(part1(len, &numbers), 198)
     }
 
     #[test]
     fn part2_test() {
-        let numbers = parse(
+        let (len, numbers) = parse(
             "00100
 11110
 10110
@@ -118,6 +123,6 @@ mod test {
 00010
 01010",
         );
-        assert_eq!(part2(numbers), 230)
+        assert_eq!(part2(len, numbers), 230)
     }
 }
